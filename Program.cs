@@ -9,6 +9,7 @@ namespace PrintFileStructure
     {
         private static List<string> commandHistory = new List<string> ( );
         private static int commandHistoryIndex = -1;
+        private static List<string> ignoreList = new List<string> ( ); // För att spara ignore-listan
 
         static void Main ( string[] args )
         {
@@ -34,6 +35,7 @@ namespace PrintFileStructure
                               "- 'ls' to list the contents of the current directory\n" +
                               "- 'cd <path>' to change the directory\n" +
                               "- 'print' to print the directory structure\n" +
+                              "- 'ignore' to manage ignore list\n" +
                               "- 'help' to display this help message again\n" +
                               "- 'exit' to close the program" );
         }
@@ -91,8 +93,26 @@ namespace PrintFileStructure
             else if ( command == "print" )
             {
                 Console.WriteLine ( "Enter the names of directories or files to ignore, separated by commas:" );
-                List<string> ignoreList = GetIgnoreListFromUser ( );
-                PrintDirectoryStructure ( currentPath,"",ignoreList );
+                ignoreList = GetIgnoreListFromUser ( ); // Spara den nya ignore-listan
+
+                // Visa ignore-listan och fråga om det är okej att fortsätta
+                DisplayIgnoreList ( );
+
+                Console.WriteLine ( "Are you okay with this list? (yes/no)" );
+                string response = Console.ReadLine ( )?.Trim ( ).ToLower ( );
+
+                if ( response == "yes" )
+                {
+                    PrintDirectoryStructure ( currentPath,"",ignoreList );
+                }
+                else
+                {
+                    Console.WriteLine ( "No changes made. You can add more items to the ignore list." );
+                }
+            }
+            else if ( command == "ignore" )
+            {
+                ManageIgnoreList ( );
             }
             else if ( command == "help" )
             {
@@ -100,8 +120,25 @@ namespace PrintFileStructure
             }
             else
             {
-                Console.WriteLine ( "Unknown command. Please use 'pwd', 'ls', 'cd <path>', 'print', 'help', or 'exit'." );
+                Console.WriteLine ( "Unknown command. Please use 'pwd', 'ls', 'cd <path>', 'print', 'ignore', 'help', or 'exit'." );
             }
+        }
+
+        static void DisplayIgnoreList ( )
+        {
+            Console.WriteLine ( "Current ignore list:" );
+            if ( ignoreList.Count == 0 )
+            {
+                Console.WriteLine ( "No items in ignore list." );
+            }
+            else
+            {
+                foreach ( var item in ignoreList )
+                {
+                    Console.WriteLine ( $"- {item}" );
+                }
+            }
+            Console.WriteLine ( ); // För extra radbrytning
         }
 
         static string ReadLineWithAutoComplete ( string currentPath )
@@ -211,6 +248,37 @@ namespace PrintFileStructure
             return finalInput;
         }
 
+        static void ManageIgnoreList ( )
+        {
+            Console.WriteLine ( "Current ignore list:" );
+            if ( ignoreList.Count == 0 )
+            {
+                Console.WriteLine ( "No items in ignore list." );
+            }
+            else
+            {
+                foreach ( var item in ignoreList )
+                {
+                    Console.WriteLine ( $"- {item}" );
+                }
+            }
+
+            Console.WriteLine ( "Do you want to add new items to the ignore list? (yes/no)" );
+            string response = Console.ReadLine ( )?.Trim ( ).ToLower ( );
+
+            if ( response == "yes" )
+            {
+                Console.WriteLine ( "Enter the names of directories or files to ignore, separated by commas:" );
+                var newIgnoreList = GetIgnoreListFromUser ( );
+                ignoreList.AddRange ( newIgnoreList );
+                ignoreList = ignoreList.Distinct ( ).ToList ( ); // Ta bort duplicerade poster
+            }
+            else
+            {
+                Console.WriteLine ( "No changes made to the ignore list." );
+            }
+        }
+
         static IEnumerable<string> GetSuggestions ( string currentPath,string input )
         {
             var entries = Directory.GetFileSystemEntries ( currentPath )
@@ -222,38 +290,46 @@ namespace PrintFileStructure
         static void ClearCurrentConsoleLine ( )
         {
             int currentLineCursor = Console.CursorTop;
-            Console.SetCursorPosition ( 0,Console.CursorTop );
+            Console.SetCursorPosition ( 0,currentLineCursor );
             Console.Write ( new string ( ' ',Console.WindowWidth ) );
             Console.SetCursorPosition ( 0,currentLineCursor );
         }
 
         static List<string> GetIgnoreListFromUser ( )
         {
-            string ignoreInput = Console.ReadLine ( );
-            return ignoreInput.Split ( ',' )
-                .Select ( item => item.Trim ( ) )
-                .Where ( item => !string.IsNullOrEmpty ( item ) )
-                .ToList ( );
+            var input = Console.ReadLine ( );
+            return input.Split ( new[] { ',' },StringSplitOptions.RemoveEmptyEntries )
+                        .Select ( item => item.Trim ( ) )
+                        .ToList ( );
         }
 
-        static void PrintDirectoryStructure ( string path,string indent,List<string> ignoreList )
+        static void PrintDirectoryStructure ( string currentPath,string indent,List<string> ignoreList )
         {
-            foreach ( var directory in GetEntries ( path,ignoreList,true ) )
+            try
             {
-                Console.WriteLine ( $"{indent}{directory}/" );
-                PrintDirectoryStructure ( Path.Combine ( path,directory ),indent + "  ",ignoreList );
-            }
-            foreach ( var file in GetEntries ( path,ignoreList,false ) )
-            {
-                Console.WriteLine ( $"{indent}{file}" );
-            }
-        }
+                foreach ( var directory in Directory.GetDirectories ( currentPath ) )
+                {
+                    string dirName = Path.GetFileName ( directory );
+                    if ( !ignoreList.Contains ( dirName ) )
+                    {
+                        Console.WriteLine ( $"{indent}- {dirName}" );
+                        PrintDirectoryStructure ( directory,indent + "  ",ignoreList );
+                    }
+                }
 
-        static IEnumerable<string> GetEntries ( string path,List<string> ignoreList,bool getDirectories )
-        {
-            var entries = getDirectories ? Directory.EnumerateDirectories ( path ) : Directory.EnumerateFiles ( path );
-            return entries.Select ( entry => Path.GetFileName ( entry ) )
-                          .Where ( entry => !ignoreList.Contains ( entry ) );
+                foreach ( var file in Directory.GetFiles ( currentPath ) )
+                {
+                    string fileName = Path.GetFileName ( file );
+                    if ( !ignoreList.Contains ( fileName ) )
+                    {
+                        Console.WriteLine ( $"{indent}- {fileName}" );
+                    }
+                }
+            }
+            catch ( UnauthorizedAccessException )
+            {
+                Console.WriteLine ( $"{indent}Access denied to {currentPath}" );
+            }
         }
     }
 }
