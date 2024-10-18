@@ -3,7 +3,12 @@
 	<PropertyGroup>
 		<OutputType>Exe</OutputType>
 		<TargetFramework>net6.0</TargetFramework>
+		<ApplicationIcon>pngtree_file_system_line_icon_png_image_9009466_GTE_icon.ico</ApplicationIcon>
 	</PropertyGroup>
+
+	<ItemGroup>
+	  <Content Include="pngtree_file_system_line_icon_png_image_9009466_GTE_icon.ico" />
+	</ItemGroup>
 
 	<ItemGroup>
 		<PackageReference Include="System.CommandLine" Version="2.0.0-beta1.20071.2" />
